@@ -17,12 +17,14 @@ switch($method){
         $sql = "SELECT ID, created_at, username, isAdmin FROM account";
         $result = mysqli_query($conn, $sql);
         $rows = [];
-
-        if ($result && $row = $result->fetch_assoc()) {
-            echo json_encode(["status" => "success", "data" => $row]);
-        } else {
-            echo json_encode(["status" => "error", "message" => "data not found"]);
+       
+        if ($result) {
+            while ($row = $result->fetch_assoc()) {
+                $rows[] = $row;
+            }
         }
+        
+        echo json_encode(["status" => "success", "data" => $rows]);
         break;
 
     case "POST":
