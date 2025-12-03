@@ -15,31 +15,36 @@ if ($method === 'POST' && isset($_POST['_method'])) {
 switch($method){
     case "POST":
         $type = $conn->real_escape_string($_POST['type']);
-        $auth_token = $conn->real_escape_string($_POST['token']);
+        $token = $conn->real_escape_string($_POST['token']);
 
-        if ($type == "database" && $auth_token){
+        $searchUserByToken = "SELECT username, session_token FROM account WHERE session_token = '$token'";
+        $isValidToken = mysqli_query($conn, $searchUserByToken);
+
+        if ($type == "tables" && $isValidToken) {
             $result = mysqli_query($conn, "SHOW TABLES");
-        }
-        $username = $conn->real_escape_string($_POST['username']);
-        $password = $conn->real_escape_string($_POST['password']);
 
-        $sql = "SELECT password FROM account WHERE username = '$username'";
-        $result = mysqli_query($conn, $sql);
-        $row = $result->fetch_assoc();
-        $hash = $row['password'];
-        $verify = password_verify($password, $hash);
-        if ($verify){
-            $sql = "SELECT ID, created_at, username, isAdmin FROM account WHERE username = '$username'";
-            $result = mysqli_query($conn, $sql);
-            $row = $result->fetch_assoc();
-            if (mysqli_query($conn, $sql)) {
-                echo json_encode(["status" => "success", "data" => $row]);
+            $tables = [];
+            if ($result) {
+                while ($row = mysqli_fetch_array($result)) {
+                    $tables[] = $row[0]; // kolom pertama berisi nama tabel
+                }
+                echo json_encode([
+                    "status" => "success",
+                    "tables" => $tables
+                ]);
             } else {
-                echo json_encode(["status" => "error", "message" => $conn->error]);
+                echo json_encode([
+                    "status" => "error",
+                    "message" => $conn->error
+                ]);
             }
         } else {
-            echo json_encode(["status" => "error", "message" => "Invalid username or password"]);
+            echo json_encode([
+                "status" => "error",
+                "message" => "Invalid type or token"
+            ]);
         }
+
     break;
     
     default:
