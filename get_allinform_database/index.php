@@ -24,13 +24,26 @@ switch($method){
             $result = mysqli_query($conn, "SHOW TABLES");
 
             $tables = [];
+            $nametables = [];
             if ($result) {
                 while ($row = mysqli_fetch_array($result)) {
                     $tables[] = $row[0]; // kolom pertama berisi nama tabel
+                    $nametables[] = $row[0];
+                }
+
+                for ($i = 0; $i < count($tables); $i++) {
+                    $sql = "SELECT * FROM " . $tables[$i];
+                    $result = $conn->query($sql);
+                    $rows = [];
+                    while ($row = $result->fetch_assoc()) {
+                        $rows[] = $row;
+                    }
+                    $tables[$i] = $rows;
                 }
                 echo json_encode([
                     "status" => "success",
-                    "tables" => $tables
+                    "name_tables" => $nametables,
+                    "data" => $tables
                 ]);
             } else {
                 echo json_encode([
@@ -38,7 +51,27 @@ switch($method){
                     "message" => $conn->error
                 ]);
             }
-        } else {
+        } else if ($type == "history_chat" && $isValidToken) {
+            $result = mysqli_query($conn, "SELECT * FROM history_chat");
+
+            $rows = [];
+            if ($result) {
+                while ($row = $result->fetch_assoc()) {
+                    $rows[] = $row;
+                }
+                echo json_encode([
+                    "status" => "success",
+                    "data" => $rows
+                ]);
+            } else {
+                echo json_encode([
+                    "status" => "error",
+                    "message" => $conn->error
+                ]);
+            }
+        }
+        
+        else {
             echo json_encode([
                 "status" => "error",
                 "message" => "Invalid type or token"
