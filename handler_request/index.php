@@ -19,7 +19,7 @@ switch($method){
         if ($action == "ask_ai") {
             $request = $conn->real_escape_string($_POST["request"]);
             $response = $conn->real_escape_string($_POST["response"]);
-            $sql_script = $_POST["sql_script"] ?? null;
+            $sql_script_raw = $_POST["sql_script"] ?? "";
             $token = $conn->real_escape_string($_POST["token"]);
 
             // Validasi token
@@ -32,8 +32,11 @@ switch($method){
             $dataFromToken = mysqli_fetch_assoc($isValidToken);
             $username = $dataFromToken["username"];
 
-            // Simpan ke history
-            $sql_formatted = $conn->real_escape_string($sql_script);
+            // Split multiple query berdasarkan ;
+            $queries = array_filter(array_map('trim', explode(";", $sql_script_raw)));
+
+            // Simpan ke history (gabungan semua query jadi satu string)
+            $sql_formatted = $conn->real_escape_string($sql_script_raw);
             $sqlInsertHistory = "INSERT INTO history_chat (request, response, sql_script, created_by) 
                                 VALUES ('$request', '$response', '$sql_formatted', '$username')";
             $insertToHistory = mysqli_query($conn, $sqlInsertHistory);
@@ -42,43 +45,49 @@ switch($method){
                 exit;
             }
 
-            // Eksekusi script
-            $result = mysqli_query($conn, $sql_script);
-            if ($result) {
-                // Kalau query menghasilkan result set (SELECT, SHOW, dll)
-                if ($result instanceof mysqli_result) {
-                    $rows = [];
-                    while ($row = mysqli_fetch_assoc($result)) {
-                        $rows[] = $row;
-                    }
-                    echo json_encode([
-                        "status" => "success",
-                        "data" => [
-                            "request" => $request,
-                            "created_by" => $username,
-                            "sql_script" => $sql_script,
+            $results = [];
+            foreach ($queries as $query) {
+                $safeQuery = $conn->real_escape_string($query);
+                $result = mysqli_query($conn, $safeQuery);
+
+                if ($result) {
+                    if ($result instanceof mysqli_result) {
+                        $rows = [];
+                        while ($row = mysqli_fetch_assoc($result)) {
+                            $rows[] = $row;
+                        }
+                        $results[] = [
+                            "query" => $query,
                             "rows" => $rows
-                        ]
-                    ]);
-                } else {
-                    // Query non-SELECT (INSERT/UPDATE/DELETE)
-                    echo json_encode([
-                        "status" => "success",
-                        "data" => [
-                            "request" => $request,
-                            "created_by" => $username,
-                            "sql_script" => $sql_script,
+                        ];
+                    } else {
+                        $results[] = [
+                            "query" => $query,
                             "affected_rows" => mysqli_affected_rows($conn)
-                        ]
-                    ]);
+                        ];
+                    }
+                } else {
+                    $results[] = [
+                        "query" => $query,
+                        "error" => $conn->error
+                    ];
                 }
-            } else {
-                echo json_encode(["status" => "error", "message" => $conn->error]);
             }
+
+            echo json_encode([
+                "status" => "success",
+                "data" => [
+                    "request" => $request,
+                    "created_by" => $username,
+                    "sql_script" => $queries,
+                    "results" => $results
+                ]
+            ]);
         } else {
             echo json_encode(["status" => "error", "message" => "Unsupported action"]);
         }
     break;
+
 
 
     case "PUT":        
