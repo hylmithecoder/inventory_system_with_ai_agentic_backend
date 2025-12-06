@@ -97,17 +97,19 @@ switch($method){
             ]
         ]);
     break;
-    
+
     case "PUT":
         // Validasi input dari $_POST
-        if (!isset($_POST['username']) || !isset($_POST['current_password']) || !isset($_POST['new_password'])) {
+        if (!isset($_POST['current_password']) || !isset($_POST['new_password']) || !isset($_POST['current_username'])) {
             echo json_encode(["status" => "error", "message" => "Username, current password, dan new password harus diisi"]);
             break;
         }
 
-        $username = $conn->real_escape_string($_POST['username']);
+        $username = $conn->real_escape_string($_POST['current_username']);
         $currentPassword = $_POST['current_password'];
         $newPassword = $_POST['new_password'];
+
+        $changeUsername = $conn->real_escape_string($_POST['username']);
 
         // Cek user
         $sql = "SELECT ID, password FROM account WHERE username = '$username'";
@@ -128,15 +130,23 @@ switch($method){
         }
 
         // Hash password baru
-        $newHash = password_hash($newPassword, PASSWORD_DEFAULT);
+        $newHash = password_hash($newPassword, PASSWORD_DEFAULT, ['cost' => 12]);
 
-        // Update ke DB
-        $updateSql = "UPDATE account SET password = '$newHash' WHERE ID = '{$row['ID']}'";
-        if (mysqli_query($conn, $updateSql)) {
-            echo json_encode(["status" => "success", "message" => "Password berhasil diupdate"]);
+        // Prepare statement for update query
+        $updateStmt = mysqli_prepare($conn, "UPDATE account SET password = ?, username = ? WHERE ID = ?");
+
+        // Bind parameters to the statement
+        mysqli_stmt_bind_param($updateStmt, "sss", $newHash, $changeUsername, $row['ID']);
+
+        // Execute the statement
+        if (mysqli_stmt_execute($updateStmt)) {
+            echo json_encode(["status" => "success", "message" => "Password dan username berhasil diupdate"]);
         } else {
-            echo json_encode(["status" => "error", "message" => "Gagal update password: " . $conn->error]);
+            echo json_encode(["status" => "error", "message" => "Gagal update password dan username: " . mysqli_stmt_error($updateStmt)]);
         }
+
+        // Close the statement
+        mysqli_stmt_close($updateStmt);
     break;
     
     default:
