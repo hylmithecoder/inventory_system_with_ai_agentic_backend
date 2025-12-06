@@ -98,6 +98,47 @@ switch($method){
         ]);
     break;
     
+    case "PUT":
+        // Validasi input dari $_POST
+        if (!isset($_POST['username']) || !isset($_POST['current_password']) || !isset($_POST['new_password'])) {
+            echo json_encode(["status" => "error", "message" => "Username, current password, dan new password harus diisi"]);
+            break;
+        }
+
+        $username = $conn->real_escape_string($_POST['username']);
+        $currentPassword = $_POST['current_password'];
+        $newPassword = $_POST['new_password'];
+
+        // Cek user
+        $sql = "SELECT ID, password FROM account WHERE username = '$username'";
+        $result = mysqli_query($conn, $sql);
+
+        if (!$result || $result->num_rows === 0) {
+            echo json_encode(["status" => "error", "message" => "User tidak ditemukan"]);
+            break;
+        }
+
+        $row = $result->fetch_assoc();
+        $hash = $row['password'];
+
+        // Verifikasi current password
+        if (!password_verify($currentPassword, $hash)) {
+            echo json_encode(["status" => "error", "message" => "Password lama salah"]);
+            break;
+        }
+
+        // Hash password baru
+        $newHash = password_hash($newPassword, PASSWORD_DEFAULT);
+
+        // Update ke DB
+        $updateSql = "UPDATE account SET password = '$newHash' WHERE ID = '{$row['ID']}'";
+        if (mysqli_query($conn, $updateSql)) {
+            echo json_encode(["status" => "success", "message" => "Password berhasil diupdate"]);
+        } else {
+            echo json_encode(["status" => "error", "message" => "Gagal update password: " . $conn->error]);
+        }
+    break;
+    
     default:
         echo json_encode(["status" => "error", "message" => "Unsupported method"]);
         break;
