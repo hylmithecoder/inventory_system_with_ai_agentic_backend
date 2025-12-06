@@ -140,7 +140,7 @@ switch($method){
 
         // Execute the statement
         if (mysqli_stmt_execute($updateStmt)) {
-            echo json_encode(["status" => "success", "message" => "Password dan username berhasil diupdate"]);
+            echo json_encode(["status" => "success", "message" => "Password dan username berhasil diupdate", "data" => ["username" => $changeUsername]]);
         } else {
             echo json_encode(["status" => "error", "message" => "Gagal update password dan username: " . mysqli_stmt_error($updateStmt)]);
         }
